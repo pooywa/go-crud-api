@@ -1,6 +1,10 @@
 package main
 
-import "github.com/gin-gonic/gin"
+import (
+	"errors"
+	"github.com/gin-gonic/gin"
+	"net/http"
+)
 
 type todo struct {
 	ID        string `json:"id"`
@@ -26,4 +30,70 @@ func main() {
 
 	router.Run(`localhost:8080`)
 
+}
+
+func addTodo(context *gin.Context) {
+	var newTodo = []todo{}
+
+	err := context.BindJSON(&newTodo)
+	if err != nil {
+		context.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	todos = append(todos, newTodo...)
+
+	context.IndentedJSON(http.StatusCreated, newTodo)
+}
+
+func getTodos(context *gin.Context) {
+	context.IndentedJSON(http.StatusOK, todos)
+}
+
+func getTodo(context *gin.Context) {
+	id := context.Param("id")
+	todo, err := getTodoIndexById(id)
+	if err != nil {
+		context.IndentedJSON(http.StatusOK, todos[todo])
+		return
+	}
+	context.IndentedJSON(http.StatusOK, todos[todo])
+}
+
+func getTodoIndexById(id string) (int, error) {
+	for i, t := range todos {
+		if t.ID == id {
+			return i, nil
+		}
+	}
+	return -1, errors.New("not found")
+}
+
+func updateTodo(context *gin.Context) {
+	id := context.Param("id")
+
+	todo, err := getTodoIndexById(id)
+	if err != nil {
+		context.JSON(http.StatusNotFound, gin.H{"message": "not found"})
+		return
+	}
+	if err := context.BindJSON(todo); err != nil {
+		context.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	context.IndentedJSON(http.StatusOK, todo)
+}
+
+func deleteTodo(context *gin.Context) {
+	id := context.Param("id")
+
+	index, err := getTodoIndexById(id)
+	if err != nil {
+		context.JSON(http.StatusNotFound, gin.H{"message": "ToDo not found"})
+		return
+	}
+	todos = append(todos[:index], todos[index+1:]...)
+
+	context.JSON(http.StatusOK, gin.H{"message": "ToDodeleted"})
 }
